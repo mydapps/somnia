@@ -158,7 +158,7 @@ export default function TradeShares({ communityName }: { communityName: string }
                     />
 
                     <div className="text-sm font-bold">
-                        {mode === "buy" ? "Cost" : "Return"}: {costData ? formatEther(costOrReturn) : "..."} SOMI
+                        {mode === "buy" ? "Cost" : "Return"}: {costData && costOrReturn > 0n ? formatEther(costOrReturn) : "..."} SOMI
                     </div>
 
                     <Button

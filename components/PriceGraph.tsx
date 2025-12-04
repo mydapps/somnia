@@ -14,6 +14,23 @@ interface Trade {
 
 export default function PriceGraph({ communityName }: { communityName: string }) {
     const [data, setData] = useState<{ date: string; price: number }[]>([]);
+    const [somiPrice, setSomiPrice] = useState<number>(0.01); // Default fallback
+
+    useEffect(() => {
+        // Fetch current SOMI price
+        const fetchSomiPrice = async () => {
+            try {
+                const res = await fetch('/api/somi-price');
+                const data = await res.json();
+                if (data.usd_price) {
+                    setSomiPrice(data.usd_price);
+                }
+            } catch (err) {
+                console.error('Failed to fetch SOMI price', err);
+            }
+        };
+        fetchSomiPrice();
+    }, []);
 
     useEffect(() => {
         const fetchTrades = async () => {
@@ -24,21 +41,20 @@ export default function PriceGraph({ communityName }: { communityName: string })
                 if (Array.isArray(trades)) {
                     const chartData = trades.map(t => {
                         const ethAmount = parseFloat(t.eth_amount);
-                        const shares = parseFloat(t.shares); // Raw units
-                        const usdPrice = parseFloat(t.usd_price || "0");
+                        const shares = parseFloat(t.shares); // Raw units from DB
 
-                        // Price per Share (1000 units) in ETH
-                        // shares is raw units. 1 Share = 1000 units.
-                        // Price per unit = ethAmount / shares
-                        // Price per 1000 units = (ethAmount / shares) * 1000
-                        const pricePerShareETH = (ethAmount / shares) * 1000;
+                        // Convert units to actual shares (divide by 1000)
+                        const actualShares = shares / 1000;
 
-                        // Price in USD
-                        const priceUSD = pricePerShareETH * (usdPrice || 0);
+                        // Price per share in SOMI
+                        const pricePerShareSOMI = actualShares > 0 ? ethAmount / actualShares : 0;
+
+                        // Convert to USD using current SOMI price
+                        const priceUSD = pricePerShareSOMI * somiPrice;
 
                         return {
                             date: new Date(t.created_at).toLocaleDateString(),
-                            price: priceUSD > 0 ? priceUSD : pricePerShareETH // Fallback to ETH if USD is 0
+                            price: priceUSD
                         };
                     });
                     setData(chartData);
@@ -48,7 +64,8 @@ export default function PriceGraph({ communityName }: { communityName: string })
             }
         };
         fetchTrades();
-    }, [communityName]);
+    }, [communityName, somiPrice]); // Re-fetch when SOMI price updates
+
 
     return (
         <Card className="neo-shadow border-2 border-black">
